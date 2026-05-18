@@ -15,11 +15,12 @@ SOUL_PATH = os.path.join(BASE_DIR, "soul.txt")
 USER_PATH = os.path.join(BASE_DIR, "user.txt")
 TRACKER_PATH = os.path.join(BASE_DIR, "tracker.txt")
 
+MAX_HISTORY_TURNS = 20  # keep last N user/assistant pairs before trimming
+
 # ------------------ STATE ------------------
 
 chat_history = []
 system_prompt = """"""
-
 
 result = None
 
@@ -104,7 +105,6 @@ def parse_tool_call(response_text):
 def run_tool(tool):
     try:
         if tool["name"] == "web_search":
-            #samble print shit
             print(f"Web SEARCH: {tool['args'][0]}")
             return tool_web_search(tool["args"][0])
 
@@ -134,6 +134,16 @@ def set_system(prompt):
     global system_prompt
     system_prompt = prompt
 
+# Trim history to MAX_HISTORY_TURNS user/assistant pairs
+# Only trims non-system messages, oldest first
+def trim_history():
+    global chat_history
+    non_system = [m for m in chat_history if m["role"] != "system"]
+    # each turn = 1 user + 1 assistant msg = 2 entries
+    max_msgs = MAX_HISTORY_TURNS * 2
+    if len(non_system) > max_msgs:
+        chat_history = non_system[-max_msgs:]
+
 #MAIN STUFF
 
 def analyze(image_path=None, prompt=""):
@@ -145,9 +155,8 @@ def analyze(image_path=None, prompt=""):
         full_img = os.path.join(BASE_DIR, image_path)
         images.append(encode_image(full_img))
 
-    # Build base messages
+    # --- System messages locked at top, never in chat_history ---
     messages = []
-    
 
     messages.append({
         "role": "system",
@@ -174,10 +183,14 @@ def analyze(image_path=None, prompt=""):
             "role": "system",
             "content": f"[CURRENT SUSTAINABILITY TRACKER SCORE]\n{current_tracker}"
         })
-    # remove any old system messages from chat history
+
+    # Trim old history before building, strip any stale system msgs
+    trim_history()
     chat_history = [m for m in chat_history if m["role"] != "system"]
+
     with open("chathistorylogs.txt", "w", encoding="utf-8") as f:
         f.write(chat_history.__str__())
+
     messages.extend(chat_history)
 
     messages.append({
@@ -194,7 +207,6 @@ def analyze(image_path=None, prompt=""):
         "top_p": 0.1,
         "repeat_penalty": 1,
         "think": False,
-        #"num_thread": 64,
         "options": {
             "num_gpu": 999
         }
@@ -211,16 +223,22 @@ def analyze(image_path=None, prompt=""):
         
     if len(output) < 20 and not tool:
         output = ""
+    # if output has <non actionable> in it then filter that out 
+    if "<non actionable>" in output:
+        output = ""
+    
+
     # If NO tool → final answer
     if not tool:
         if output != "":
-            chat_history.append({"role": "user", "content": prompt})
+            chat_history.append({"role": "user", "content": prompt, "images": images if images else []})
             chat_history.append({"role": "Sebby", "content": output})
         return output, True, None, None
+
     # Run tool
     result = run_tool(tool)
 
-    # Feed result back into conversation
+    # Feed result back into this request's messages only (not chat_history)
     messages.append({
         "role": "Sebby",
         "content": output
@@ -232,9 +250,10 @@ def analyze(image_path=None, prompt=""):
     })
 
     if output != "":
-        chat_history.append({"role": "user", "content": prompt})
+        chat_history.append({"role": "user", "content": prompt, "images": images if images else []})
         chat_history.append({"role": "Sebby", "content": output})
-        chat_history.append({"role": "system", "content": f"[TOOL RESULT]\n{result}"})
-    # strip tool call form output before returning to coordinator:
-    output=re.sub(r'^\[TOOL\].*\n?', '', output, flags=re.MULTILINE).strip()
+        chat_history.append({"role": "Sebby", "content": f"[TOOL RESULT]\n{result}"})
+
+    # strip tool call from output before returning to coordinator
+    output = re.sub(r'^\[TOOL\].*\n?', '', output, flags=re.MULTILINE).strip()
     return output, False, tool, result

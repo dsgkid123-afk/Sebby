@@ -13,7 +13,7 @@ import base64
 import numpy as np
 import soundfile as sf
 
-API_URL = "http://localhost:5000/SebbyBrain"
+API_URL = "https://(YOUR_ID)-5000.usw2.devtunnels.ms/SebbyBrain"
 
 
 with open("sebby/system.txt", "r", encoding="utf-8") as f:

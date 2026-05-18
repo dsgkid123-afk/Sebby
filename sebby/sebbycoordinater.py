@@ -21,7 +21,7 @@ heartbeat=0
 transcriber = WhisperTranscriber(
     model_size="large-v3", 
     device="cuda",        
-    compute_type="float16"  
+    compute_type="int8"  
 )
 response=""
 
@@ -137,7 +137,7 @@ while True:
         prompt=""
     )
     process_response(result)
-    time.sleep(1)
+    time.sleep(.5)
     vad2.clip()
     
                 

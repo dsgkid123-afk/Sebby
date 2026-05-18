@@ -12,7 +12,7 @@ import EmotionFind as emotionFind
 
 app = Flask(__name__)
 
-with open("sebby/system.txt", "r", encoding="utf-8") as f:
+with open("sebbyBackV2/system.txt", "r", encoding="utf-8") as f:
     systemPrompt = f.read()
 
 print("System Prompt Loaded: " + systemPrompt[:60] + "...")
@@ -85,13 +85,15 @@ def SebbyBrain(audio_bytes, image):
                     break
         print("Final response ready with emotion:", emotion)
         return emotion, total_audio
-    print("faulty vad detected, no transcription possible")
+    print("faulty vad detected")
     return "default", total_audio
 
 
 @app.route("/SebbyBrain", methods=["POST"])
 def process():
-    audio = request.files["audio"]
+    audio = request.files.get("audio", [])
+    if audio == []:
+        return {"heartbeat": "success"}, 200
     image = request.files["image"]
 
     img = Image.open(io.BytesIO(image.read()))
