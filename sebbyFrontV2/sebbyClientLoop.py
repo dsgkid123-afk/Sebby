@@ -107,13 +107,13 @@ while True:
             audio_bytes = base64.b64decode(data["audio_b64"])
             audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
             process_server_response(audio_array, data["text"])
-            time.sleep(1)
+            time.sleep(.2)
             vad2.clip()
         time.sleep(1)
             
     camera.snapshot()
     # call api
-    with open("sebbyFrontV2/clip5.wav", "rb") as audio_file, open("snapshot.jpg", "rb") as image_file:
+    with open("sebbyFrontV2/clip5.wav", "rb") as audio_file, open("sebbyFrontV2/snapshot.jpg", "rb") as image_file:
         response = requests.post(API_URL, files={
             "audio": None,
             "image": ("sebbyFrontV2/snapshot.jpg", image_file, "image/jpeg"),
@@ -122,7 +122,7 @@ while True:
     audio_bytes = base64.b64decode(data["audio_b64"])
     audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
     process_server_response(audio_array, data["text"])
-    time.sleep(1)
+    time.sleep(.1)
     vad2.clip()
     
                 

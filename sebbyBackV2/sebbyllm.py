@@ -207,8 +207,9 @@ def analyze(image_path=None, prompt=""):
         "top_p": 0.1,
         "repeat_penalty": 1,
         "think": False,
+        "num_ctx": 4096,
         "options": {
-            "num_gpu": 999
+            "num_gpu": 5
         }
     }
 
@@ -224,8 +225,8 @@ def analyze(image_path=None, prompt=""):
     if len(output) < 20 and not tool:
         output = ""
     # if output has <non actionable> in it then filter that out 
-    if "<non actionable>" in output:
-        output = ""
+    #if "<non actionable>" in output:
+    #    output = ""
     
 
     # If NO tool → final answer

@@ -207,8 +207,9 @@ def analyze(image_path=None, prompt=""):
         "top_p": 0.1,
         "repeat_penalty": 1,
         "think": False,
+        "num_ctx": 4096,
         "options": {
-            "num_gpu": 999
+            "num_gpu": 5
         }
     }
 

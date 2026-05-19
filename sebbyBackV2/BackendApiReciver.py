@@ -3,6 +3,7 @@ from PIL import Image
 import base64, io
 import numpy as np
 import scipy.signal
+import wave
 
 from scipy.io.wavfile import read as wav_read, write as wav_write
 from whisperTranscribe import WhisperTranscriber
@@ -18,9 +19,9 @@ with open("sebbyBackV2/system.txt", "r", encoding="utf-8") as f:
 print("System Prompt Loaded: " + systemPrompt[:60] + "...")
 
 transcriber = WhisperTranscriber(
-    model_size="large-v3",
-    device="cuda",
-    compute_type="float16"
+    model_size="base",
+    device="cpu",
+    compute_type="int8"
 )
 
 sebbyllm.reset_chat()
@@ -88,23 +89,34 @@ def SebbyBrain(audio_bytes, image):
     print("faulty vad detected")
     return "default", total_audio
 
-
 @app.route("/SebbyBrain", methods=["POST"])
 def process():
-    audio = request.files.get("audio", [])
-    if audio == []:
-        return {"heartbeat": "success"}, 200
-    image = request.files["image"]
+    audio_file = request.files.get("audio")
+    if audio_file is None:
+        # Build a 1-second silence WAV with proper RIFF headers
+        sample_rate = 16000
+        silence = np.zeros(sample_rate, dtype=np.int16)
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)          # 16-bit = 2 bytes
+            wf.setframerate(sample_rate)
+            wf.writeframes(silence.tobytes())
+        audio = buf.getvalue()
+    else:
+        audio = audio_file.read()
 
+    image = request.files["image"]
     img = Image.open(io.BytesIO(image.read()))
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="JPEG")
 
-    emotion, total_audio = SebbyBrain(audio.read(), buf.getvalue())
+    emotion, total_audio = SebbyBrain(audio, buf.getvalue())
 
     return {
         "text": emotion,
         "audio_b64": base64.b64encode(total_audio.tobytes()).decode()
     }
+
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=False)
