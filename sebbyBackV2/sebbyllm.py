@@ -19,7 +19,7 @@ SOUL_PATH = os.path.join(BASE_DIR, "soul.txt")
 USER_PATH = os.path.join(BASE_DIR, "user.txt")
 TRACKER_PATH = os.path.join(BASE_DIR, "tracker.txt")
 
-MAX_HISTORY_TURNS = 20  # keep last N user/assistant pairs before trimming
+MAX_HISTORY_TURNS = 12  # keep last N user/assistant pairs before trimming
 
 # ------------------ STATE ------------------
 
