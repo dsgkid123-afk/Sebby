@@ -45,9 +45,53 @@ class RoboEyes:
 
     def mood(self, mood_type="default"):
         """
-        Available moods: default, angry, happy, sad, suspicious, surprised, confused
+        Available moods: default, angry, happy, sad, suspicious, surprised, confused, thinking
         """
         self.current_mood = mood_type.lower()
+
+    def _draw_thinking_spinner(self, screen, now, bg_color):
+        """
+        Draw an animated loading circle in place of the eyes while in 'thinking' mood.
+        """
+        s = self.scale
+        # Center the spinner in the area both eyes would normally occupy
+        eye_total_w = (self.ew * 2 + 10) * s
+        eye_center_x = self.curr_x * s + eye_total_w // 2
+        eye_center_y = self.curr_y * s + (self.eh * s) // 2
+
+        radius = int(self.eh * s * 0.72)
+        thickness = max(4, int(s * 3.5))
+
+        # Full dim circle (track)
+        track_color = (60, 60, 60)
+        pygame.draw.circle(screen, track_color, (int(eye_center_x), int(eye_center_y)), radius, thickness)
+
+        # Spinning arc — simulate with multiple short arcs of increasing opacity
+        angle = (now / 600.0) % (2 * math.pi)   # full rotation every ~3.8s
+        arc_span = math.pi * 1.1                 # arc covers ~200 degrees
+
+        num_segments = 48
+        for k in range(num_segments):
+            # Each segment is a tiny slice of the arc
+            frac = k / num_segments
+            seg_start = angle + frac * arc_span
+            seg_end   = angle + (frac + 1 / num_segments) * arc_span
+
+            # Brightness fades from bright at the head to dim at the tail
+            brightness = int(80 + 175 * frac)
+            color = (brightness, brightness, brightness)
+
+            # Draw segment as a short arc via thick line between two points on the circle
+            x1 = eye_center_x + radius * math.cos(seg_start)
+            y1 = eye_center_y + radius * math.sin(seg_start)
+            x2 = eye_center_x + radius * math.cos(seg_end)
+            y2 = eye_center_y + radius * math.sin(seg_end)
+            pygame.draw.line(screen, color, (int(x1), int(y1)), (int(x2), int(y2)), thickness)
+
+        # Small filled circle at the leading tip of the arc for a clean "head"
+        head_x = eye_center_x + radius * math.cos(angle + arc_span)
+        head_y = eye_center_y + radius * math.sin(angle + arc_span)
+        pygame.draw.circle(screen, (255, 255, 255), (int(head_x), int(head_y)), thickness // 2 + 1)
 
     def _render_loop(self):
         pygame.init()
@@ -84,7 +128,7 @@ class RoboEyes:
             off_x, off_y = 0, 0
             dt = now / 1000.0
             if self.is_nodding_yes: off_y = math.sin(dt * 12) * self.intensity
-            if self.is_nodding_no: off_x = math.sin(dt * 12) * self.intensity
+            if self.is_nodding_no:  off_x = math.sin(dt * 12) * self.intensity
 
             # Smooth movement
             self.curr_x += (self.target_x - self.curr_x) * 0.1
@@ -94,6 +138,14 @@ class RoboEyes:
             bg_color = (15, 15, 15)
             screen.fill(bg_color)
             s = self.scale
+
+            # --- THINKING MOOD: replace both eyes with a single spinner ---
+            if self.current_mood == "thinking":
+                self._draw_thinking_spinner(screen, now, bg_color)
+                pygame.display.flip()
+                clock.tick(60)
+                continue
+
             draw_y = (self.curr_y + off_y) * s + (self.eh*s - (self.eh*s * blink_h)) / 2
             
             for i in range(2):
@@ -134,7 +186,6 @@ class RoboEyes:
                         
                 elif self.current_mood == "surprised":
                     # "Pupils" shrink down to small dots
-                    # Mask the whole eye, then draw a smaller inner rectangle
                     pygame.draw.rect(screen, bg_color, rect)
                     small_rect = pygame.Rect(x + 10*s, draw_y + 10*s, 16*s, 16*s * blink_h)
                     pygame.draw.rect(screen, (255, 255, 255), small_rect, border_radius=4*s)
@@ -149,13 +200,13 @@ if __name__ == "__main__":
     eyes = RoboEyes()
     eyes.standby()
     
-    moods = ["default", "happy", "angry", "sad", "suspicious", "surprised", "confused"]
+    moods = ["default", "happy", "angry", "sad", "suspicious", "surprised", "confused", "thinking"]
     
     try:
         for m in moods:
             print(f"Switching to: {m}")
             eyes.mood(m)
-            time.sleep(3) # Hold each emotion for 3 seconds
+            time.sleep(3)
     except KeyboardInterrupt:
         pass
     finally:

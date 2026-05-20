@@ -1,4 +1,6 @@
-from flask import Flask, request
+from fastapi import FastAPI, File, UploadFile
+from typing import Optional
+import uvicorn
 from PIL import Image
 import base64, io
 import numpy as np
@@ -11,7 +13,7 @@ import speach as speach
 import sebbyllm as sebbyllm
 import EmotionFind as emotionFind
 
-app = Flask(__name__)
+app = FastAPI()
 
 with open("sebbyBackV2/system.txt", "r", encoding="utf-8") as f:
     systemPrompt = f.read()
@@ -19,7 +21,7 @@ with open("sebbyBackV2/system.txt", "r", encoding="utf-8") as f:
 print("System Prompt Loaded: " + systemPrompt[:60] + "...")
 
 transcriber = WhisperTranscriber(
-    model_size="large-v3-turbo",
+    model_size="base.en",
     device="cuda",
     compute_type="float16"
 )
@@ -39,8 +41,8 @@ def process_response(result):
             num_samples = int(len(audio) * 16000 / sample_rate)
             audio = scipy.signal.resample(audio, num_samples)
         if audio.dtype != np.int16:
-            audio = (audio * 32767).clip(-32768, 32767).astype(np.int16)
-        audioOut = audio
+            audio = (audio * 32767 * 0.85).clip(-32768, 32767).astype(np.int16)
+            audioOut = audio
 
     return audioOut, emotion
 
@@ -89,10 +91,10 @@ def SebbyBrain(audio_bytes, image):
     print("faulty vad detected")
     return "default", total_audio
 
-@app.route("/SebbyBrain", methods=["POST"])
-def process():
-    audio_file = request.files.get("audio")
-    if audio_file is None:
+
+@app.post("/SebbyBrain")
+async def process(image: UploadFile = File(...), audio: Optional[UploadFile] = File(None)):
+    if audio is None:
         # Build a 1-second silence WAV with proper RIFF headers
         sample_rate = 16000
         silence = np.zeros(sample_rate, dtype=np.int16)
@@ -102,21 +104,22 @@ def process():
             wf.setsampwidth(2)          # 16-bit = 2 bytes
             wf.setframerate(sample_rate)
             wf.writeframes(silence.tobytes())
-        audio = buf.getvalue()
+        audio_data = buf.getvalue()
     else:
-        audio = audio_file.read()
+        audio_data = await audio.read()
 
-    image = request.files["image"]
-    img = Image.open(io.BytesIO(image.read()))
+    image_data = await image.read()
+    img = Image.open(io.BytesIO(image_data))
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="JPEG")
 
-    emotion, total_audio = SebbyBrain(audio, buf.getvalue())
+    emotion, total_audio = SebbyBrain(audio_data, buf.getvalue())
 
     return {
         "text": emotion,
         "audio_b64": base64.b64encode(total_audio.tobytes()).decode()
     }
 
+
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    uvicorn.run(app, host="127.0.0.1", port=5000)

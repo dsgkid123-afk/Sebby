@@ -43,6 +43,8 @@ def setactions(actions):
         robot.mood("surprised")
     elif 3 in actions:
         robot.mood("default")
+    elif 9 in actions:
+        robot.mood("thinking")
         
     if 1 in actions:
         robot.yes(intensity=5)
@@ -98,6 +100,7 @@ while True:
         print ("heartbeat: " + str(heartbeat))
         clip = vad.get_clip()
         if clip is not None:
+            setactions([9])  # thinking mode while processing
             camera.snapshot()
             write("sebbyFrontV2/clip5.wav", 16000, clip)
             # call api
@@ -111,7 +114,7 @@ while True:
             audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
             process_server_response(audio_array, data["text"])
         time.sleep(.5)
-            
+    setactions([9])    
     camera.snapshot()
     # call api
     with open("sebbyFrontV2/clip5.wav", "rb") as audio_file, open("sebbyFrontV2/snapshot.jpg", "rb") as image_file:
