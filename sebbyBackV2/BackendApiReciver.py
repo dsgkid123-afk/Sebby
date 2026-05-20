@@ -19,7 +19,7 @@ with open("sebbyBackV2/system.txt", "r", encoding="utf-8") as f:
 print("System Prompt Loaded: " + systemPrompt[:60] + "...")
 
 transcriber = WhisperTranscriber(
-    model_size="base.en",
+    model_size="large-v3-turbo",
     device="cuda",
     compute_type="float16"
 )
