@@ -19,9 +19,9 @@ with open("sebbyBackV2/system.txt", "r", encoding="utf-8") as f:
 print("System Prompt Loaded: " + systemPrompt[:60] + "...")
 
 transcriber = WhisperTranscriber(
-    model_size="base",
-    device="cpu",
-    compute_type="int8"
+    model_size="base.en",
+    device="cuda",
+    compute_type="float16"
 )
 
 sebbyllm.reset_chat()

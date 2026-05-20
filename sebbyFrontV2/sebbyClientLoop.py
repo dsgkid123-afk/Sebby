@@ -79,10 +79,13 @@ def process_server_response(AudioOut, emotion):
         else:
             setactions([3])  # default
             
-            
+        vad.sped_clip()  # clear any remaining audio in the VAD buffer and load it for if the next time we speak we dont cut off the start of our sentences
         #speak response with speach
         sd.play(AudioOut, 16000)
         sd.wait()
+        
+        time.sleep(.2)
+        vad2.clip()
 
 
 
@@ -90,7 +93,7 @@ vad.start_recording_speach()
 vad2.clip()
 print("RECORDING")
 while True:
-    for i in range(20):
+    for i in range(50):
         heartbeat += 1
         print ("heartbeat: " + str(heartbeat))
         clip = vad.get_clip()
@@ -107,9 +110,7 @@ while True:
             audio_bytes = base64.b64decode(data["audio_b64"])
             audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
             process_server_response(audio_array, data["text"])
-            time.sleep(.2)
-            vad2.clip()
-        time.sleep(1)
+        time.sleep(.5)
             
     camera.snapshot()
     # call api
@@ -122,8 +123,6 @@ while True:
     audio_bytes = base64.b64decode(data["audio_b64"])
     audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
     process_server_response(audio_array, data["text"])
-    time.sleep(.1)
-    vad2.clip()
     
                 
                 

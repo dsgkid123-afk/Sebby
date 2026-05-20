@@ -7,8 +7,12 @@ import re
 
 # ------------------ CONFIG ------------------
 
-MODEL = "gemma4"
+MODEL = "gemma4:26b"
 OLLAMA_URL = "http://localhost:11434/api/chat"
+
+# Persistent session: reuses TCP connections across requests instead of
+# doing a new handshake every call. Low-hanging fruit, free perf.
+_session = requests.Session()
 
 BASE_DIR = os.path.dirname(__file__)
 SOUL_PATH = os.path.join(BASE_DIR, "soul.txt")
@@ -207,13 +211,23 @@ def analyze(image_path=None, prompt=""):
         "top_p": 0.1,
         "repeat_penalty": 1,
         "think": False,
-        "num_ctx": 4096,
+        "num_ctx": 5000,
         "options": {
-            "num_gpu": 5
-        }
+            "num_gpu": 14,
+            # Gemma 4 supports processing multiple tokens in parallel during
+            # the prefill (prompt evaluation) phase. A larger num_batch means
+            # the prompt is chunked into bigger pieces and fed to the GPU more
+            # efficiently. 1024 is a safe bump from the default 512; go higher
+            # (2048) if you have VRAM headroom and long prompts.
+            "num_batch": 1024,
+        },
+        # Keep the model loaded in GPU memory between requests instead of
+        # unloading after each call. -1 = keep forever (until process exits).
+        # Drop to e.g. "5m" if VRAM is tight and requests are infrequent.
+        "keep_alive": -1,
     }
 
-    response = requests.post(OLLAMA_URL, json=payload)
+    response = _session.post(OLLAMA_URL, json=payload)  # uses persistent connection
     
     if response.status_code != 200:
         return f"Error: {response.status_code} - {response.text}"
@@ -225,8 +239,8 @@ def analyze(image_path=None, prompt=""):
     if len(output) < 20 and not tool:
         output = ""
     # if output has <non actionable> in it then filter that out 
-    #if "<non actionable>" in output:
-    #    output = ""
+    if "<non actionable>" in output:
+        output = ""
     
 
     # If NO tool → final answer

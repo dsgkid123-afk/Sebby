@@ -19,9 +19,9 @@ with open("sebby/system.txt", "r", encoding="utf-8") as f:
 print("System Prompt Loaded: " + systemPrompt[:60] + "...")
 heartbeat=0
 transcriber = WhisperTranscriber(
-    model_size="large-v3", 
+    model_size="base.en", 
     device="cuda",        
-    compute_type="int8"  
+    compute_type="float16"  
 )
 response=""
 
@@ -126,8 +126,8 @@ while True:
                     process_response(result)
                     if is_final:
                         break
-            time.sleep(1)
-            vad2.clip()
+            #time.sleep(1)
+            #vad2.clip()
             i += 10
         time.sleep(1)
             
