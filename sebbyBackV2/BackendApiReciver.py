@@ -46,6 +46,13 @@ def process_response(result):
 def SebbyBrain(audio_bytes, image):
     print("Received audio and image data.")
     sample_rate, audio = wav_read(io.BytesIO(audio_bytes))
+
+    # Upsample from 4kHz → 16kHz (frontend sends at quarter rate)
+    if sample_rate == 4000:
+        num_samples = int(len(audio) * 16000 / sample_rate)
+        audio = scipy.signal.resample(audio, num_samples)
+        sample_rate = 16000
+
     if audio.dtype != np.int16:
         audio = (audio * 32767).clip(-32768, 32767).astype(np.int16)
     if sample_rate != 16000:
@@ -82,6 +89,12 @@ def SebbyBrain(audio_bytes, image):
                     break
 
         print("Final response ready with emotion:", emotion)
+
+        # Downsample response 16kHz → 4kHz before sending back
+        if len(total_audio) > 0:
+            num_samples = int(len(total_audio) * 4000 / 16000)
+            total_audio = scipy.signal.resample(total_audio, num_samples).astype(np.int16)
+
         return emotion, total_audio
     print("faulty vad detected")
     return "default", total_audio
@@ -105,6 +118,9 @@ def process():
 
     image = request.files["image"]
     img = Image.open(io.BytesIO(image.read()))
+    # Halve the image resolution before processing
+    half_size = (img.width // 2, img.height // 2)
+    img = img.resize(half_size, Image.LANCZOS)
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="JPEG")
     emotion, total_audio = SebbyBrain(audio, buf.getvalue())
