@@ -12,7 +12,6 @@ import requests
 import base64
 import numpy as np
 import soundfile as sf
-import scipy.signal
 
 API_URL = "https://(YOUR_ID)-5000.usw2.devtunnels.ms/SebbyBrain"
 
@@ -30,16 +29,6 @@ response=""
 
 
 robot = robo_eyes.RoboEyes()
-
-def downsample_audio(audio: np.ndarray, from_rate=16000, to_rate=4000) -> np.ndarray:
-    num_samples = int(len(audio) * to_rate / from_rate)
-    resampled = scipy.signal.resample(audio, num_samples)
-    return resampled.astype(np.int16)
-
-def upsample_audio(audio: np.ndarray, from_rate=4000, to_rate=16000) -> np.ndarray:
-    num_samples = int(len(audio) * to_rate / from_rate)
-    resampled = scipy.signal.resample(audio, num_samples)
-    return resampled.astype(np.int16)
 
 def setactions(actions):
     if 4 in actions:
@@ -113,8 +102,7 @@ while True:
         if clip is not None:
             setactions([9])  # thinking mode while processing
             camera.snapshot()
-            clip_4k = downsample_audio(clip, from_rate=16000, to_rate=4000)
-            write("sebbyFrontV2/clip5.wav", 4000, clip_4k)
+            write("sebbyFrontV2/clip5.wav", 16000, clip)
             # call api
             with open("sebbyFrontV2/clip5.wav", "rb") as audio_file, open("sebbyFrontV2/snapshot.jpg", "rb") as image_file:
                 response = requests.post(API_URL, files={
@@ -124,7 +112,6 @@ while True:
             data = response.json()
             audio_bytes = base64.b64decode(data["audio_b64"])
             audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
-            audio_array = upsample_audio(audio_array, from_rate=4000, to_rate=16000)
             process_server_response(audio_array, data["text"])
         time.sleep(.5)
     setactions([9])    
@@ -138,5 +125,7 @@ while True:
     data = response.json()
     audio_bytes = base64.b64decode(data["audio_b64"])
     audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
-    audio_array = upsample_audio(audio_array, from_rate=4000, to_rate=16000)
     process_server_response(audio_array, data["text"])
+    
+                
+                

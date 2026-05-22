@@ -38,7 +38,7 @@ def process_response(result):
             audio = scipy.signal.resample(audio, num_samples)
         if audio.dtype != np.int16:
             audio = (audio * 32767 * 0.85).clip(-32768, 32767).astype(np.int16)
-        audioOut = audio  # FIX: was inside the if block, always assign
+            audioOut = audio
 
     return audioOut, emotion
 
@@ -46,13 +46,6 @@ def process_response(result):
 def SebbyBrain(audio_bytes, image):
     print("Received audio and image data.")
     sample_rate, audio = wav_read(io.BytesIO(audio_bytes))
-
-    # Upsample from 4kHz → 16kHz (frontend sends at quarter rate)
-    if sample_rate == 4000:
-        num_samples = int(len(audio) * 16000 / sample_rate)
-        audio = scipy.signal.resample(audio, num_samples)
-        sample_rate = 16000
-
     if audio.dtype != np.int16:
         audio = (audio * 32767).clip(-32768, 32767).astype(np.int16)
     if sample_rate != 16000:
@@ -89,12 +82,6 @@ def SebbyBrain(audio_bytes, image):
                     break
 
         print("Final response ready with emotion:", emotion)
-
-        # Downsample response 16kHz → 4kHz before sending back
-        if len(total_audio) > 0:
-            num_samples = int(len(total_audio) * 4000 / 16000)
-            total_audio = scipy.signal.resample(total_audio, num_samples).astype(np.int16)
-
         return emotion, total_audio
     print("faulty vad detected")
     return "default", total_audio
@@ -103,13 +90,13 @@ def SebbyBrain(audio_bytes, image):
 def process():
     audio_file = request.files.get("audio")
     if audio_file is None:
-        # Build a 1-second silence WAV with proper RIFF headers at 4kHz to match frontend expectation
-        sample_rate = 4000
+        # Build a 1-second silence WAV with proper RIFF headers
+        sample_rate = 16000
         silence = np.zeros(sample_rate, dtype=np.int16)
         buf = io.BytesIO()
         with wave.open(buf, "wb") as wf:
             wf.setnchannels(1)
-            wf.setsampwidth(2)
+            wf.setsampwidth(2)          # 16-bit = 2 bytes
             wf.setframerate(sample_rate)
             wf.writeframes(silence.tobytes())
         audio = buf.getvalue()
@@ -118,9 +105,6 @@ def process():
 
     image = request.files["image"]
     img = Image.open(io.BytesIO(image.read()))
-    # Halve the image resolution (scales down, no cropping)
-    half_size = (img.width // 2, img.height // 2)
-    img = img.resize(half_size, Image.LANCZOS)
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="JPEG")
     emotion, total_audio = SebbyBrain(audio, buf.getvalue())
