@@ -38,7 +38,7 @@ def process_response(result):
             audio = scipy.signal.resample(audio, num_samples)
         if audio.dtype != np.int16:
             audio = (audio * 32767 * 0.85).clip(-32768, 32767).astype(np.int16)
-            audioOut = audio
+        audioOut = audio  # FIX: was inside the if block, always assign
 
     return audioOut, emotion
 
@@ -103,13 +103,13 @@ def SebbyBrain(audio_bytes, image):
 def process():
     audio_file = request.files.get("audio")
     if audio_file is None:
-        # Build a 1-second silence WAV with proper RIFF headers
-        sample_rate = 16000
+        # Build a 1-second silence WAV with proper RIFF headers at 4kHz to match frontend expectation
+        sample_rate = 4000
         silence = np.zeros(sample_rate, dtype=np.int16)
         buf = io.BytesIO()
         with wave.open(buf, "wb") as wf:
             wf.setnchannels(1)
-            wf.setsampwidth(2)          # 16-bit = 2 bytes
+            wf.setsampwidth(2)
             wf.setframerate(sample_rate)
             wf.writeframes(silence.tobytes())
         audio = buf.getvalue()
@@ -118,7 +118,7 @@ def process():
 
     image = request.files["image"]
     img = Image.open(io.BytesIO(image.read()))
-    # Halve the image resolution before processing
+    # Halve the image resolution (scales down, no cropping)
     half_size = (img.width // 2, img.height // 2)
     img = img.resize(half_size, Image.LANCZOS)
     buf = io.BytesIO()
